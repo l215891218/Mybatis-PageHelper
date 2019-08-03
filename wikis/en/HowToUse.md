@@ -3,8 +3,8 @@
 ### 1. Installation
 
 To use PageHelper you just need to include the 
-[pagehelper-x.x.x.jar](http://repo1.maven.org/maven2/com/github/pagehelper/pagehelper/) 
-and [jsqlparser-0.9.5.jar](http://repo1.maven.org/maven2/com/github/jsqlparser/jsqlparser/0.9.5/) file in the classpath.
+[pagehelper-x.y.z.jar](http://repo1.maven.org/maven2/com/github/pagehelper/pagehelper/)
+and [jsqlparser-x.y.z.jar](http://repo1.maven.org/maven2/com/github/jsqlparser/jsqlparser/) file in the classpath.
 
 If you are using Maven just add the following dependency to your pom.xml: 
 ```xml  
@@ -108,6 +108,11 @@ it is possible to automatically recognize pagination of the corresponding dialec
 When you use a runtime dynamic data source or do not set the `helperDialect` property, PageHelper will automatically get the database type, then a database connection is automatically obtained,
 This property is used to set whether to close the connection, the default `true` close. When 'false' is set, It will not close the connection.
 
+10. `aggregateFunctions`(5.1.5+): The default is the aggregate function of all common databases,
+allowing you to manually add aggregate functions ( affecting the number of rows ).
+All functions that start with aggregate functions will be wrap as subquery.
+Other functions and columns will be replaced with count(0).
+
 #### 4. How to choose Configure these parameters
 
 Here are a few examples for some of the parameters may be used.
@@ -165,7 +170,7 @@ List<Country> list = sqlSession.selectList("x.y.selectIf", null, new RowBounds(0
 List<Country> list = countryMapper.selectIf(1, new RowBounds(0, 10));
 //or PageRowBounds
 PageRowBounds rowBounds = new PageRowBounds(0, 10);
-List<Country> list = countryMapper.selectIf(1, new RowBounds(0, 10));
+List<Country> list = countryMapper.selectIf(1, rowBounds);
 long total = rowBounds.getTotal();
 
 //2. use static method startPage

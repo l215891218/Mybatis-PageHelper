@@ -22,39 +22,58 @@
  * THE SOFTWARE.
  */
 
-package com.github.pagehelper.dialect.helper;
+package com.github.pagehelper;
 
-import com.github.pagehelper.Page;
-import org.apache.ibatis.cache.CacheKey;
-import org.apache.ibatis.mapping.BoundSql;
-import org.apache.ibatis.mapping.MappedStatement;
-
-import java.util.Map;
+import java.io.Serializable;
+import java.util.List;
 
 /**
  * @author liuzh
  */
-public class SqlServer2012Dialect extends SqlServerDialect {
+public class PageSerializable<T> implements Serializable {
+    private static final long serialVersionUID = 1L;
+    //总记录数
+    protected long    total;
+    //结果集
+    protected List<T> list;
 
-    @Override
-    public Object processPageParameter(MappedStatement ms, Map<String, Object> paramMap, Page page, BoundSql boundSql, CacheKey pageKey) {
-        paramMap.put(PAGEPARAMETER_FIRST, page.getStartRow());
-        paramMap.put(PAGEPARAMETER_SECOND, page.getPageSize());
-        //处理pageKey
-        pageKey.update(page.getStartRow());
-        pageKey.update(page.getPageSize());
-        //处理参数配置
-        handleParameter(boundSql, ms);
-        return paramMap;
+    public PageSerializable() {
+    }
+
+    public PageSerializable(List<T> list) {
+        this.list = list;
+        if(list instanceof Page){
+            this.total = ((Page)list).getTotal();
+        } else {
+            this.total = list.size();
+        }
+    }
+
+    public static <T> PageSerializable<T> of(List<T> list){
+        return new PageSerializable<T>(list);
+    }
+
+    public long getTotal() {
+        return total;
+    }
+
+    public void setTotal(long total) {
+        this.total = total;
+    }
+
+    public List<T> getList() {
+        return list;
+    }
+
+    public void setList(List<T> list) {
+        this.list = list;
     }
 
     @Override
-    public String getPageSql(String sql, Page page, CacheKey pageKey) {
-        StringBuilder sqlBuilder = new StringBuilder(sql.length() + 64);
-        sqlBuilder.append(sql);
-        sqlBuilder.append(" OFFSET ? ROWS FETCH NEXT ? ROWS ONLY ");
-        pageKey.update(page.getPageSize());
-        return sqlBuilder.toString();
+    public String toString() {
+        return "PageSerializable{" +
+                "total=" + total +
+                ", list=" + list +
+                '}';
     }
-
 }

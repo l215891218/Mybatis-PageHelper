@@ -24,7 +24,6 @@
 
 package com.github.pagehelper;
 
-import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 
@@ -39,8 +38,7 @@ import java.util.List;
  * 项目地址 : http://git.oschina.net/free/Mybatis_PageHelper
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class PageInfo<T> implements Serializable {
-    private static final long serialVersionUID = 1L;
+public class PageInfo<T> extends PageSerializable<T> {
     //当前页
     private int pageNum;
     //每页的数量
@@ -55,12 +53,8 @@ public class PageInfo<T> implements Serializable {
     private int startRow;
     //当前页面最后一个元素在数据库中的行号
     private int endRow;
-    //总记录数
-    private long total;
     //总页数
     private int pages;
-    //结果集
-    private List<T> list;
 
     //前一页
     private int prePage;
@@ -103,15 +97,14 @@ public class PageInfo<T> implements Serializable {
      * @param navigatePages 页码数量
      */
     public PageInfo(List<T> list, int navigatePages) {
+        super(list);
         if (list instanceof Page) {
             Page page = (Page) list;
             this.pageNum = page.getPageNum();
             this.pageSize = page.getPageSize();
 
             this.pages = page.getPages();
-            this.list = page;
             this.size = page.size();
-            this.total = page.getTotal();
             //由于结果是>startRow的，所以实际的需要+1
             if (this.size == 0) {
                 this.startRow = 0;
@@ -126,9 +119,7 @@ public class PageInfo<T> implements Serializable {
             this.pageSize = list.size();
 
             this.pages = this.pageSize > 0 ? 1 : 0;
-            this.list = list;
             this.size = list.size();
-            this.total = list.size();
             this.startRow = 0;
             this.endRow = list.size() > 0 ? list.size() - 1 : 0;
         }
@@ -141,6 +132,14 @@ public class PageInfo<T> implements Serializable {
             //判断页面边界
             judgePageBoudary();
         }
+    }
+
+    public static <T> PageInfo<T> of(List<T> list) {
+        return new PageInfo<T>(list);
+    }
+
+    public static <T> PageInfo<T> of(List<T> list, int navigatePages) {
+        return new PageInfo<T>(list, navigatePages);
     }
 
     /**
@@ -200,7 +199,7 @@ public class PageInfo<T> implements Serializable {
      */
     private void judgePageBoudary() {
         isFirstPage = pageNum == 1;
-        isLastPage = pageNum == pages || pages == 0;;
+        isLastPage = pageNum == pages || pages == 0;
         hasPreviousPage = pageNum > 1;
         hasNextPage = pageNum < pages;
     }
@@ -245,39 +244,12 @@ public class PageInfo<T> implements Serializable {
         this.endRow = endRow;
     }
 
-    public long getTotal() {
-        return total;
-    }
-
-    public void setTotal(long total) {
-        this.total = total;
-    }
-
     public int getPages() {
         return pages;
     }
 
     public void setPages(int pages) {
         this.pages = pages;
-    }
-
-    public List<T> getList() {
-        return list;
-    }
-
-    public void setList(List<T> list) {
-        this.list = list;
-    }
-
-    @Deprecated
-    // firstPage就是1, 此函数获取的是导航条上的第一页, 容易产生歧义
-    public int getFirstPage() {
-        return navigateFirstPage;
-    }
-
-    @Deprecated
-    public void setFirstPage(int firstPage) {
-        this.navigateFirstPage = firstPage;
     }
 
     public int getPrePage() {
@@ -294,17 +266,6 @@ public class PageInfo<T> implements Serializable {
 
     public void setNextPage(int nextPage) {
         this.nextPage = nextPage;
-    }
-
-    @Deprecated
-    // 请用getPages()来获取最后一页, 此函数获取的是导航条上的最后一页, 容易产生歧义.
-    public int getLastPage() {
-        return navigateLastPage;
-    }
-
-    @Deprecated
-    public void setLastPage(int lastPage) {
-        this.navigateLastPage = lastPage;
     }
 
     public boolean isIsFirstPage() {
@@ -392,11 +353,13 @@ public class PageInfo<T> implements Serializable {
         sb.append(", navigateFirstPage=").append(navigateFirstPage);
         sb.append(", navigateLastPage=").append(navigateLastPage);
         sb.append(", navigatepageNums=");
-        if (navigatepageNums == null) sb.append("null");
-        else {
+        if (navigatepageNums == null) {
+            sb.append("null");
+        } else {
             sb.append('[');
-            for (int i = 0; i < navigatepageNums.length; ++i)
+            for (int i = 0; i < navigatepageNums.length; ++i) {
                 sb.append(i == 0 ? "" : ", ").append(navigatepageNums[i]);
+            }
             sb.append(']');
         }
         sb.append('}');

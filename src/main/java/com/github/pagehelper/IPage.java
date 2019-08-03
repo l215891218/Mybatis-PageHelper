@@ -22,11 +22,17 @@
  * THE SOFTWARE.
  */
 
+package com.github.pagehelper;
+
 /**
  * @author liuzh
  */
-public class Ognl {
-    public static boolean isNotNull(Object obj) {
-        return obj != null;
-    }
+public interface IPage {
+
+    Integer getPageNum();
+
+    Integer getPageSize();
+
+    String getOrderBy();
+
 }

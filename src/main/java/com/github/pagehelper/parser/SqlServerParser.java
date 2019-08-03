@@ -31,6 +31,7 @@ import net.sf.jsqlparser.expression.LongValue;
 import net.sf.jsqlparser.expression.operators.relational.GreaterThan;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Column;
+import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.select.*;
 
@@ -102,7 +103,7 @@ public class SqlServerParser {
         try {
             stmt = CCJSqlParserUtil.parse(sql);
         } catch (Throwable e) {
-            throw new PageException("不支持该SQL转换为分页查询!");
+            throw new PageException("不支持该SQL转换为分页查询!", e);
         }
         if (!(stmt instanceof Select)) {
             throw new PageException("分页语句必须是Select查询!");
@@ -351,9 +352,11 @@ public class SqlServerParser {
     protected void processFromItem(FromItem fromItem, int level) {
         if (fromItem instanceof SubJoin) {
             SubJoin subJoin = (SubJoin) fromItem;
-            if (subJoin.getJoin() != null) {
-                if (subJoin.getJoin().getRightItem() != null) {
-                    processFromItem(subJoin.getJoin().getRightItem(), level + 1);
+            if (subJoin.getJoinList() != null && subJoin.getJoinList().size() > 0) {
+                for (Join join : subJoin.getJoinList()) {
+                    if (join.getRightItem() != null) {
+                        processFromItem(join.getRightItem(), level + 1);
+                    }
                 }
             }
             if (subJoin.getLeft() != null) {
@@ -488,7 +491,7 @@ public class SqlServerParser {
 
             } else { // OrderByElement 不在查询列表中，需要自动生成一个查询列
                 if (expression instanceof Column) { // OrderByElement 为普通列
-                    String table = ((Column) expression).getTable().getName();
+                    Table table = ((Column) expression).getTable();
                     if (table == null) { // 表名为空
                         if (allColumns ||
                                 (allColumnsTables.size() == 1 && plainSelect.getJoins() == null) ||
@@ -499,7 +502,8 @@ public class SqlServerParser {
                         }
 
                     } else { //表名不为空
-                        if (allColumns || allColumnsTables.contains(table)) {
+                        String tableName = table.getName();
+                        if (allColumns || allColumnsTables.contains(tableName)) {
                             // 包含`*`查询列 或者 包含特定的`t.*`列
                             // 此时排序列其实已经包含在查询列表中了，只需去除排序列的表名引
                             ((Column) expression).setTable(null);

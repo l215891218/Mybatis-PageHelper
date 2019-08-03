@@ -1,5 +1,271 @@
 ## Changelog
 
+### 5.1.10 - 2019-06-05
+
+In version *5.1.0 - 2017-08-28*. Added `ReplaceSql` interface for handling sqlServer with (nolock) problem,
+add the replaceSql parameters, the optional value is `simple` and `regex`, or to achieve the `ReplaceSql` interface
+fully qualified class name. The default value is `simple`, still using the original way to deal with,
+the new regex will be convert `with (nolock)` to `table_PAGEWITHNOLOCK`.
+
+This update only changes the default value from `simple` to `regex`, which can almost 100% solve the paging problem of sqlServer.
+
+The following are examples from two issue.
+
+#### issue [#76](https://github.com/pagehelper/pagehelper-spring-boot/issues/76)
+
+Original SQL：
+```sql
+SELECT *
+FROM
+forum_post_info a with(nolock)
+LEFT JOIN forum_carcase_tags as b with(nolock) on a.id = b.carcase_id where b.tag_id = 127
+```
+Converted Count SQL：
+```sql
+SELECT COUNT(0)
+FROM forum_post_info a WITH (NOLOCK)
+	LEFT JOIN forum_carcase_tags b WITH (NOLOCK) ON a.id = b.carcase_id
+WHERE b.tag_id = 127
+```
+Converted paging SQL：
+```sql
+SELECT TOP 10 *
+FROM (
+	SELECT ROW_NUMBER() OVER (ORDER BY RAND()) AS PAGE_ROW_NUMBER, *
+	FROM (
+		SELECT *
+		FROM forum_post_info a WITH (NOLOCK)
+			LEFT JOIN forum_carcase_tags b WITH (NOLOCK) ON a.id = b.carcase_id
+		WHERE b.tag_id = 127
+	) PAGE_TABLE_ALIAS
+) PAGE_TABLE_ALIAS
+WHERE PAGE_ROW_NUMBER > 1
+ORDER BY PAGE_ROW_NUMBER
+```
+
+#### issue [#398](https://github.com/pagehelper/Mybatis-PageHelper/issues/398)
+
+Original SQL：
+```sql
+Select AUS.ScheduleID, AUS.SystemID, AUS.ClinicID, AUS.DoctorID, AUS.ScheduleDate,
+	AUS.StartTime, AUS.EndTime, AUS.Status, AUS.BookBy, AUS.Note, AUS.Remark, AUS.SourceType, CM.CompanyName,
+	AU.UserName As DoctorName, AU.UserNumber As DoctorNumber, CC.CodeDesc As ClinicName, CD.Lat, CD.Lng,
+	CD.ContactTel, CD.Address, CR.ConsultationStatusID, CR.RegisterStatus,A1.CodeDesc as AreaLevel1, A2.CodeDesc as AreaLevel2
+	From ACM_User_Schedule AUS with(nolock)
+	Left Join Client_Register CR with(nolock) On AUS.BookBy=CR.ClientID And CR.SourceType='F' And AUS.ClientRegisterNum=CR.ClientRegisterNum
+	Inner Join ACM_User AU with(nolock) On AU.UserID = AUS.DoctorID
+	Inner Join Code_Clinic CC with(nolock) On AUS.ClinicID=CC.CodeID
+	Inner Join Clinic_Detail CD with(nolock) On CC.CodeID = CD.ClinicID
+	Inner Join Code_Area A1 with(nolock) On CD.AreaLevel1ID=A1.CodeID
+	Inner Join Code_Area A2 with(nolock) On CD.AreaLevel2ID=A2.CodeID
+	Inner Join Company_Master CM with(nolock) On CC.SystemID = CM.SystemID
+	Where BookBy=1
+```
+Converted Count SQL：
+```sql
+SELECT COUNT(0)
+FROM ACM_User_Schedule AUS WITH (NOLOCK)
+	LEFT JOIN Client_Register CR WITH (NOLOCK)
+	ON AUS.BookBy = CR.ClientID
+		AND CR.SourceType = 'F'
+		AND AUS.ClientRegisterNum = CR.ClientRegisterNum
+	INNER JOIN ACM_User AU WITH (NOLOCK) ON AU.UserID = AUS.DoctorID
+	INNER JOIN Code_Clinic CC WITH (NOLOCK) ON AUS.ClinicID = CC.CodeID
+	INNER JOIN Clinic_Detail CD WITH (NOLOCK) ON CC.CodeID = CD.ClinicID
+	INNER JOIN Code_Area A1 WITH (NOLOCK) ON CD.AreaLevel1ID = A1.CodeID
+	INNER JOIN Code_Area A2 WITH (NOLOCK) ON CD.AreaLevel2ID = A2.CodeID
+	INNER JOIN Company_Master CM WITH (NOLOCK) ON CC.SystemID = CM.SystemID
+WHERE BookBy = 1
+```
+Converted paging SQL：
+```sql
+SELECT TOP 10 ScheduleID, SystemID, ClinicID, DoctorID, ScheduleDate
+	, StartTime, EndTime, Status, BookBy, Note
+	, Remark, SourceType, CompanyName, DoctorName, DoctorNumber
+	, ClinicName, Lat, Lng, ContactTel, Address
+	, ConsultationStatusID, RegisterStatus, AreaLevel1, AreaLevel2
+FROM (
+	SELECT ROW_NUMBER() OVER (ORDER BY RAND()) AS PAGE_ROW_NUMBER, ScheduleID, SystemID, ClinicID, DoctorID
+		, ScheduleDate, StartTime, EndTime, Status, BookBy
+		, Note, Remark, SourceType, CompanyName, DoctorName
+		, DoctorNumber, ClinicName, Lat, Lng, ContactTel
+		, Address, ConsultationStatusID, RegisterStatus, AreaLevel1, AreaLevel2
+	FROM (
+		SELECT AUS.ScheduleID, AUS.SystemID, AUS.ClinicID, AUS.DoctorID, AUS.ScheduleDate
+			, AUS.StartTime, AUS.EndTime, AUS.Status, AUS.BookBy, AUS.Note
+			, AUS.Remark, AUS.SourceType, CM.CompanyName, AU.UserName AS DoctorName, AU.UserNumber AS DoctorNumber
+			, CC.CodeDesc AS ClinicName, CD.Lat, CD.Lng, CD.ContactTel, CD.Address
+			, CR.ConsultationStatusID, CR.RegisterStatus, A1.CodeDesc AS AreaLevel1, A2.CodeDesc AS AreaLevel2
+		FROM ACM_User_Schedule AUS WITH (NOLOCK)
+			LEFT JOIN Client_Register CR WITH (NOLOCK)
+			ON AUS.BookBy = CR.ClientID
+				AND CR.SourceType = 'F'
+				AND AUS.ClientRegisterNum = CR.ClientRegisterNum
+			INNER JOIN ACM_User AU WITH (NOLOCK) ON AU.UserID = AUS.DoctorID
+			INNER JOIN Code_Clinic CC WITH (NOLOCK) ON AUS.ClinicID = CC.CodeID
+			INNER JOIN Clinic_Detail CD WITH (NOLOCK) ON CC.CodeID = CD.ClinicID
+			INNER JOIN Code_Area A1 WITH (NOLOCK) ON CD.AreaLevel1ID = A1.CodeID
+			INNER JOIN Code_Area A2 WITH (NOLOCK) ON CD.AreaLevel2ID = A2.CodeID
+			INNER JOIN Company_Master CM WITH (NOLOCK) ON CC.SystemID = CM.SystemID
+		WHERE BookBy = 1
+	) PAGE_TABLE_ALIAS
+) PAGE_TABLE_ALIAS
+WHERE PAGE_ROW_NUMBER > 1
+ORDER BY PAGE_ROW_NUMBER
+```
+
+SQL is formatted by https://tool.oschina.net/codeformat/sql
+
+### 5.1.9 - 2019-05-29
+
+- Upgrade jsqlparser to 2.0, upgrade mybatis to 3.5.1. resolve compatibility issues.
+- Improve paging logic judgment. fixed #389
+- Solve MetaObject version compatibility issues. fixed #349
+- Processing order by output warning log when parsing fails, not throwing exception
+- Solve three problems that may cause countColumn to fail fixed #325
+- Add a comma with less BIT_ fixed #341
+- Handling invalid links in documents isea533
+- Document sample error. fixed #366
+- fixed #373 NPE problem
+
+### 5.1.8 - 2018-11-11
+
+- Resolve the problem of `with(nolock)` in SQLServer ([#pr10](https://gitee.com/free/Mybatis_PageHelper/pulls/10)) by [lvshuyan](https://gitee.com/lvshuyan)
+
+### 5.1.7 - 2018-10-11
+
+- Support Aliyun PPAS database. Automatic identification of edb. fixed #281
+
+### 5.1.6 - 2018-09-05
+
+- Add the parameter useSqlserver2012, set to true, and use sqlserver2012(Dialect) as the default paging method for SQL Server databases, which is useful in dynamic data sources.
+- Add an IPage interface. Currently, there is only one parameter to support the MyBatis query method, and when the parameter implements the IPage interface, paging query will be automatically performed if paging parameters exist. Thanks to [moonfruit](https://github.com/moonfruit) Issue two years ago.
+- fixed # 276 to resolve hashset concurrency issue
+- Optimize code structure and streamline interceptor code
+
+### 5.1.5 - 2018-09-02
+
+- Optimize the code and remove unnecessary checks(**by lenosp**)
+- Solve the small problem of pageKey multi-processing once #268
+- Added javadoc documentation on gitee(https://apidoc.gitee.com/free/Mybatis_PageHelper)
+- Solve the problem of default reflection without cache fixed #275
+- Optimizing mysql ifnull function causes paging performance problems (**by miaogr**)（This change was eventually changed to the following `aggregateFunctions`）
+- Jsqlparser has been upgraded to version 1.2, which is incompatible with 1.0 and has been resolved. fixed 273
+- Remove the g(s)etFirstPage and g(s)etLastPage methods that are ambiguous in PageInfo
+- Throws an exception that failed to parse when sorting fixed #257
+- Resolve the initialization problem when there is no properties property when configuring the spring use `<bean>`. fixed #26
+- Fix the problem that Oracle paging will leak data (**by muyun12**)
+- `aggregateFunctions`: The default is the aggregate function of all common databases,
+  allowing you to manually add aggregate functions ( affecting the number of rows ).
+  All functions that start with aggregate functions will be wrap as subquery.
+  Other functions and columns will be replaced with count(0).
+
+After adding the `aggregateFunctions` parameter, the biggest difference from the original is that if there is `select ifnull(XXX,YY) from table ...`, the original count query is
+ `select count(0) from (select ifnull(xxx,yy) from table ... ) temp_count` now distinguishes aggregate functions, if not aggregate functions, it will become
+ `select count(0) from table ...`.
+
+The aggregate function prefixes included by default are as follows:
+
+```java
+/**
+ * Aggregate functions, beginning with the following functions are considered aggregate functions
+ */
+private static final Set<String> AGGREGATE_FUNCTIONS = new HashSet<String>(Arrays.asList(
+        ("APPROX_COUNT_DISTINCT," +
+        "ARRAY_AGG," +
+        "AVG," +
+        "BIT_" +
+        //"BIT_AND," +
+        //"BIT_OR," +
+        //"BIT_XOR," +
+        "BOOL_," +
+        //"BOOL_AND," +
+        //"BOOL_OR," +
+        "CHECKSUM_AGG," +
+        "COLLECT," +
+        "CORR," +
+        //"CORR_," +
+        //"CORRELATION," +
+        "COUNT," +
+        //"COUNT_BIG," +
+        "COVAR," +
+        //"COVAR_POP," +
+        //"COVAR_SAMP," +
+        //"COVARIANCE," +
+        //"COVARIANCE_SAMP," +
+        "CUME_DIST," +
+        "DENSE_RANK," +
+        "EVERY," +
+        "FIRST," +
+        "GROUP," +
+        //"GROUP_CONCAT," +
+        //"GROUP_ID," +
+        //"GROUPING," +
+        //"GROUPING," +
+        //"GROUPING_ID," +
+        "JSON_," +
+        //"JSON_AGG," +
+        //"JSON_ARRAYAGG," +
+        //"JSON_OBJECT_AGG," +
+        //"JSON_OBJECTAGG," +
+        //"JSONB_AGG," +
+        //"JSONB_OBJECT_AGG," +
+        "LAST," +
+        "LISTAGG," +
+        "MAX," +
+        "MEDIAN," +
+        "MIN," +
+        "PERCENT_," +
+        //"PERCENT_RANK," +
+        //"PERCENTILE_CONT," +
+        //"PERCENTILE_DISC," +
+        "RANK," +
+        "REGR_," +
+        "SELECTIVITY," +
+        "STATS_," +
+        //"STATS_BINOMIAL_TEST," +
+        //"STATS_CROSSTAB," +
+        //"STATS_F_TEST," +
+        //"STATS_KS_TEST," +
+        //"STATS_MODE," +
+        //"STATS_MW_TEST," +
+        //"STATS_ONE_WAY_ANOVA," +
+        //"STATS_T_TEST_*," +
+        //"STATS_WSR_TEST," +
+        "STD," +
+        //"STDDEV," +
+        //"STDDEV_POP," +
+        //"STDDEV_SAMP," +
+        //"STDDEV_SAMP," +
+        //"STDEV," +
+        //"STDEVP," +
+        "STRING_AGG," +
+        "SUM," +
+        "SYS_OP_ZONE_ID," +
+        "SYS_XMLAGG," +
+        "VAR," +
+        //"VAR_POP," +
+        //"VAR_SAMP," +
+        //"VARIANCE," +
+        //"VARIANCE_SAMP," +
+        //"VARP," +
+        "XMLAGG").split(",")));
+```
+
+### 5.1.4 - 2018-04-22
+
+- Add the DaMeng Database (dm) to page using Oracle. If you want to change SqlServer, you can refer to the `dialectAlias` parameter in the 5.1.3 update log.
+
+### 5.1.3 - 2018-04-07
+
+- `Page` `toString` method adds `super.toString()`. The final output form is `Page{Attribute}[Collection]`.
+- New `defaultCount` parameter is used to control whether to perform count query in the default method without count query. By default, `true` will execute count query. This is a globally valid parameter, and it is a uniform behavior when multiple data sources are used.
+- New `dialogAlias` parameter that allows you to configure aliases for custom implementations. it can be used to automatically obtain corresponding implementations based on JDBC URL. it allows you to overwrite existing implementations in this way. configuration examples are ( Separate multiple configurations with semicolons ):
+  ```xml
+  <property name="dialectAlias" value="oracle=com.github.pagehelper.dialect.helper.OracleDialect"/>
+  ```
+- The new `PageSerializable` class, a simplified version of the `PageInfo` class, is recommended to use or refer to this class when it does not require much information.
+
 ### 5.1.2 - 2017-09-18
 
 - Solve the problem  when using the `PageHelper.orderBy` method alone #110;

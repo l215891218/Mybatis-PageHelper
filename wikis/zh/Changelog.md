@@ -1,5 +1,268 @@
 ## 更新日志
 
+### 5.1.10 - 2019-06-05
+
+在 *5.1.0 - 2017-08-28* 版本中，增加 `ReplaceSql` 接口用于处理 sqlServer 的 `with(nolock)` 问题，增加了针对性的 `replaceSql` 参数，
+可选值为 `simple` 和 `regex`，或者是实现了ReplaceSql接口的全限定类名。默认值为 `simple`，仍然使用原来的方式处理，
+新的 `regex` 会将如 `table with(nolock)` 处理为 `table_PAGEWITHNOLOCK`。
+
+本次更新仅仅是把默认值从 `simple` 改为了 `regex`，使用 `regex` 方式几乎能 100% 解决 sqlServer 的分页问题。
+
+下面是两个 issue 中的示例。
+
+#### 示例 SQL [#76](https://github.com/pagehelper/pagehelper-spring-boot/issues/76)
+
+原始 SQL：
+```sql
+SELECT *
+FROM
+forum_post_info a with(nolock)
+LEFT JOIN forum_carcase_tags as b with(nolock) on a.id = b.carcase_id where b.tag_id = 127
+```
+转换的 Count SQL：
+```sql
+SELECT COUNT(0)
+FROM forum_post_info a WITH (NOLOCK)
+	LEFT JOIN forum_carcase_tags b WITH (NOLOCK) ON a.id = b.carcase_id
+WHERE b.tag_id = 127
+```
+转换的分页 SQL：
+```sql
+SELECT TOP 10 *
+FROM (
+	SELECT ROW_NUMBER() OVER (ORDER BY RAND()) AS PAGE_ROW_NUMBER, *
+	FROM (
+		SELECT *
+		FROM forum_post_info a WITH (NOLOCK)
+			LEFT JOIN forum_carcase_tags b WITH (NOLOCK) ON a.id = b.carcase_id
+		WHERE b.tag_id = 127
+	) PAGE_TABLE_ALIAS
+) PAGE_TABLE_ALIAS
+WHERE PAGE_ROW_NUMBER > 1
+ORDER BY PAGE_ROW_NUMBER
+```
+
+#### 示例 SQL [#398](https://github.com/pagehelper/Mybatis-PageHelper/issues/398)
+
+原始 SQL：
+```sql
+Select AUS.ScheduleID, AUS.SystemID, AUS.ClinicID, AUS.DoctorID, AUS.ScheduleDate,
+	AUS.StartTime, AUS.EndTime, AUS.Status, AUS.BookBy, AUS.Note, AUS.Remark, AUS.SourceType, CM.CompanyName,
+	AU.UserName As DoctorName, AU.UserNumber As DoctorNumber, CC.CodeDesc As ClinicName, CD.Lat, CD.Lng,
+	CD.ContactTel, CD.Address, CR.ConsultationStatusID, CR.RegisterStatus,A1.CodeDesc as AreaLevel1, A2.CodeDesc as AreaLevel2
+	From ACM_User_Schedule AUS with(nolock)
+	Left Join Client_Register CR with(nolock) On AUS.BookBy=CR.ClientID And CR.SourceType='F' And AUS.ClientRegisterNum=CR.ClientRegisterNum
+	Inner Join ACM_User AU with(nolock) On AU.UserID = AUS.DoctorID
+	Inner Join Code_Clinic CC with(nolock) On AUS.ClinicID=CC.CodeID
+	Inner Join Clinic_Detail CD with(nolock) On CC.CodeID = CD.ClinicID
+	Inner Join Code_Area A1 with(nolock) On CD.AreaLevel1ID=A1.CodeID
+	Inner Join Code_Area A2 with(nolock) On CD.AreaLevel2ID=A2.CodeID
+	Inner Join Company_Master CM with(nolock) On CC.SystemID = CM.SystemID
+	Where BookBy=1
+```
+转换的 Count SQL：
+```sql
+SELECT COUNT(0)
+FROM ACM_User_Schedule AUS WITH (NOLOCK)
+	LEFT JOIN Client_Register CR WITH (NOLOCK)
+	ON AUS.BookBy = CR.ClientID
+		AND CR.SourceType = 'F'
+		AND AUS.ClientRegisterNum = CR.ClientRegisterNum
+	INNER JOIN ACM_User AU WITH (NOLOCK) ON AU.UserID = AUS.DoctorID
+	INNER JOIN Code_Clinic CC WITH (NOLOCK) ON AUS.ClinicID = CC.CodeID
+	INNER JOIN Clinic_Detail CD WITH (NOLOCK) ON CC.CodeID = CD.ClinicID
+	INNER JOIN Code_Area A1 WITH (NOLOCK) ON CD.AreaLevel1ID = A1.CodeID
+	INNER JOIN Code_Area A2 WITH (NOLOCK) ON CD.AreaLevel2ID = A2.CodeID
+	INNER JOIN Company_Master CM WITH (NOLOCK) ON CC.SystemID = CM.SystemID
+WHERE BookBy = 1
+```
+转换的分页 SQL：
+```sql
+SELECT TOP 10 ScheduleID, SystemID, ClinicID, DoctorID, ScheduleDate
+	, StartTime, EndTime, Status, BookBy, Note
+	, Remark, SourceType, CompanyName, DoctorName, DoctorNumber
+	, ClinicName, Lat, Lng, ContactTel, Address
+	, ConsultationStatusID, RegisterStatus, AreaLevel1, AreaLevel2
+FROM (
+	SELECT ROW_NUMBER() OVER (ORDER BY RAND()) AS PAGE_ROW_NUMBER, ScheduleID, SystemID, ClinicID, DoctorID
+		, ScheduleDate, StartTime, EndTime, Status, BookBy
+		, Note, Remark, SourceType, CompanyName, DoctorName
+		, DoctorNumber, ClinicName, Lat, Lng, ContactTel
+		, Address, ConsultationStatusID, RegisterStatus, AreaLevel1, AreaLevel2
+	FROM (
+		SELECT AUS.ScheduleID, AUS.SystemID, AUS.ClinicID, AUS.DoctorID, AUS.ScheduleDate
+			, AUS.StartTime, AUS.EndTime, AUS.Status, AUS.BookBy, AUS.Note
+			, AUS.Remark, AUS.SourceType, CM.CompanyName, AU.UserName AS DoctorName, AU.UserNumber AS DoctorNumber
+			, CC.CodeDesc AS ClinicName, CD.Lat, CD.Lng, CD.ContactTel, CD.Address
+			, CR.ConsultationStatusID, CR.RegisterStatus, A1.CodeDesc AS AreaLevel1, A2.CodeDesc AS AreaLevel2
+		FROM ACM_User_Schedule AUS WITH (NOLOCK)
+			LEFT JOIN Client_Register CR WITH (NOLOCK)
+			ON AUS.BookBy = CR.ClientID
+				AND CR.SourceType = 'F'
+				AND AUS.ClientRegisterNum = CR.ClientRegisterNum
+			INNER JOIN ACM_User AU WITH (NOLOCK) ON AU.UserID = AUS.DoctorID
+			INNER JOIN Code_Clinic CC WITH (NOLOCK) ON AUS.ClinicID = CC.CodeID
+			INNER JOIN Clinic_Detail CD WITH (NOLOCK) ON CC.CodeID = CD.ClinicID
+			INNER JOIN Code_Area A1 WITH (NOLOCK) ON CD.AreaLevel1ID = A1.CodeID
+			INNER JOIN Code_Area A2 WITH (NOLOCK) ON CD.AreaLevel2ID = A2.CodeID
+			INNER JOIN Company_Master CM WITH (NOLOCK) ON CC.SystemID = CM.SystemID
+		WHERE BookBy = 1
+	) PAGE_TABLE_ALIAS
+) PAGE_TABLE_ALIAS
+WHERE PAGE_ROW_NUMBER > 1
+ORDER BY PAGE_ROW_NUMBER
+```
+
+SQL 经过 https://tool.oschina.net/codeformat/sql 格式化。
+
+
+### 5.1.9 - 2019-05-29
+
+- 升级 jsqlparser 为 2.0，升级 mybatis 为 3.5.1，解决兼容性问题。
+- 完善分页逻辑判断，fixed #389
+- 解决 MetaObject 版本兼容性问题 fixed #349
+- 处理 order by 解析失败时输出警告日志，不在抛出异常
+- 解决三处可能会导致countColumn失效的问题 fixed #325
+- 解决 BIT_ 少的逗号 fixed #341
+- 处理文档中的失效链接 isea533
+- 文档示例错误，fixed #366
+- fixed #373 NPE 问题
+
+### 5.1.8 - 2018-11-11
+
+- 解决 sqlserver 中 with(nolock) 的问题([#pr10](https://gitee.com/free/Mybatis_PageHelper/pulls/10)) by [lvshuyan](https://gitee.com/lvshuyan)
+
+### 5.1.7 - 2018-10-11
+
+- 增加对阿里云PPAS数据库的支持，自动识别edb，fixed #281
+
+### 5.1.6 - 2018-09-05
+
+- 增加参数 useSqlserver2012，设置为 true 后，使用 sqlserver2012(Dialect) 作为 SqlServer 数据库的默认分页方式，这种情况在动态数据源时方便使用。默认使用的低版本(05,08)分页方式。
+- 增加 IPage 接口，目前支持 mybatis 查询方法只有一个参数，并且参数实现 IPage 接口时，如果存在分页参数，就会自动进行分页查询。感谢 [moonfruit](https://github.com/moonfruit) 两年前的 issue。
+- 解决 HashSet 并发问题 fixed #276
+- 优化代码结构，精简拦截器代码
+
+### 5.1.5 - 2018-09-02
+
+- 优化代码，去掉没必要的校验(**by lenosp**)
+- 解决 pageKey 多处理一次的小问题 #268
+- 新增 gitee 提供的 javadoc 文档(https://apidoc.gitee.com/free/Mybatis_PageHelper)
+- 解决默认反射不带缓存的问题 fixed #275
+- 优化mysql ifnull函数导致分页性能问题 (**by miaogr**)（这个修改最终改成了下面的 `aggregateFunctions`）
+- jsqlparser 升级为 1.2 版本，和 1.0 有不兼容的情况，已经解决。 fixed 273
+- 去掉 PageInfo 中存在歧义的 g(s)etFirstPage 和 g(s)etLastPage 两个方法
+- 抛出排序时解析失败的异常 fixed #257
+- 解决 Spring `<bean>` 方式配置时，没有 `properties` 属性时的初始化问题 fixed #26
+- 修复Oracle分页会漏查数据的问题 (**by muyun12**)
+- 新增 `aggregateFunctions` 参数(`CountSqlParser`), 允许手动添加聚合函数（影响行数），所以以聚合函数开头的函数，在进行 count 转换时，会套一层。其他函数和列会被替换为 count(0),其中count列可以自己配置。
+
+增加 `aggregateFunctions` 参数后，和原先最大的区别是，如果存在 `select ifnull(xxx, yy) from table ...`，原先的 count 查询是
+`select count(0) from (select ifnull(xxx, yy) from table ...) temp_count`，现在会区别聚合函数，如果不是聚合函数，就会变成
+`select count(0) from table ...`。
+
+默认包含的聚合函数前缀如下：
+
+```java
+/**
+ * 聚合函数，以下列函数开头的都认为是聚合函数
+ */
+private static final Set<String> AGGREGATE_FUNCTIONS = new HashSet<String>(Arrays.asList(
+        ("APPROX_COUNT_DISTINCT," +
+        "ARRAY_AGG," +
+        "AVG," +
+        "BIT_" +
+        //"BIT_AND," +
+        //"BIT_OR," +
+        //"BIT_XOR," +
+        "BOOL_," +
+        //"BOOL_AND," +
+        //"BOOL_OR," +
+        "CHECKSUM_AGG," +
+        "COLLECT," +
+        "CORR," +
+        //"CORR_," +
+        //"CORRELATION," +
+        "COUNT," +
+        //"COUNT_BIG," +
+        "COVAR," +
+        //"COVAR_POP," +
+        //"COVAR_SAMP," +
+        //"COVARIANCE," +
+        //"COVARIANCE_SAMP," +
+        "CUME_DIST," +
+        "DENSE_RANK," +
+        "EVERY," +
+        "FIRST," +
+        "GROUP," +
+        //"GROUP_CONCAT," +
+        //"GROUP_ID," +
+        //"GROUPING," +
+        //"GROUPING," +
+        //"GROUPING_ID," +
+        "JSON_," +
+        //"JSON_AGG," +
+        //"JSON_ARRAYAGG," +
+        //"JSON_OBJECT_AGG," +
+        //"JSON_OBJECTAGG," +
+        //"JSONB_AGG," +
+        //"JSONB_OBJECT_AGG," +
+        "LAST," +
+        "LISTAGG," +
+        "MAX," +
+        "MEDIAN," +
+        "MIN," +
+        "PERCENT_," +
+        //"PERCENT_RANK," +
+        //"PERCENTILE_CONT," +
+        //"PERCENTILE_DISC," +
+        "RANK," +
+        "REGR_," +
+        "SELECTIVITY," +
+        "STATS_," +
+        //"STATS_BINOMIAL_TEST," +
+        //"STATS_CROSSTAB," +
+        //"STATS_F_TEST," +
+        //"STATS_KS_TEST," +
+        //"STATS_MODE," +
+        //"STATS_MW_TEST," +
+        //"STATS_ONE_WAY_ANOVA," +
+        //"STATS_T_TEST_*," +
+        //"STATS_WSR_TEST," +
+        "STD," +
+        //"STDDEV," +
+        //"STDDEV_POP," +
+        //"STDDEV_SAMP," +
+        //"STDDEV_SAMP," +
+        //"STDEV," +
+        //"STDEVP," +
+        "STRING_AGG," +
+        "SUM," +
+        "SYS_OP_ZONE_ID," +
+        "SYS_XMLAGG," +
+        "VAR," +
+        //"VAR_POP," +
+        //"VAR_SAMP," +
+        //"VARIANCE," +
+        //"VARIANCE_SAMP," +
+        //"VARP," +
+        "XMLAGG").split(",")));
+```
+
+### 5.1.4 - 2018-04-22
+
+- 默认增加达梦数据库(dm)，可以自动根据 jdbcurl 使用Oracle方式进行分页。如果想换 SqlServer 可以参考 5.1.3 更新日志中的 `dialectAlias` 参数。
+
+### 5.1.3 - 2018-04-07
+
+- `Page` 的 `toString` 方法增加 `super.toString()`。最终输出形式如 `Page{属性}[集合]`。
+- 增加 `defaultCount` 参数，用于控制默认不带 count 查询的方法中，是否执行 count 查询，默认 true 会执行 count 查询，这是一个全局生效的参数，多数据源时也是统一的行为。
+- 增加 `dialectAlias` 参数，允许配置自定义实现的 别名，可以用于根据 JDBCURL 自动获取对应实现，允许通过此种方式覆盖已有的实现，配置示例如（多个时分号隔开）： 
+  ```xml
+  <property name="dialectAlias" value="oracle=com.github.pagehelper.dialect.helper.OracleDialect"/>
+  ```
+- 增加 `PageSerializable`，简化版的 `PageInfo` 类，不需要那么多信息时，推荐使用或者参考这个类实现。
+
 ### 5.1.2 - 2017-09-18
 
 - 解决单独使用 `PageHelper.orderBy` 方法时的问题 #110;

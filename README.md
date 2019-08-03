@@ -2,7 +2,6 @@
 
 [![Build Status](https://travis-ci.org/pagehelper/Mybatis-PageHelper.svg?branch=master)](https://travis-ci.org/pagehelper/Mybatis-PageHelper)
 [![Maven central](https://maven-badges.herokuapp.com/maven-central/com.github.pagehelper/pagehelper/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.pagehelper/pagehelper)
-[![Dependency Status](https://www.versioneye.com/user/projects/5932123f22f278003c5f851e/badge.svg?style=flat)](https://www.versioneye.com/user/projects/5932123f22f278003c5f851e)
 
 [中文版文档](https://github.com/pagehelper/Mybatis-PageHelper/blob/master/README_zh.md)
 
@@ -14,6 +13,12 @@ Some special cases please see the [**Important note**](https://github.com/pagehe
 
 Want to use PageHelper? 
 Please see [**How to use PageHelper**](https://github.com/pagehelper/Mybatis-PageHelper/blob/master/wikis/en/HowToUse.md).
+
+## New JavaDoc
+
+https://apidoc.gitee.com/free/Mybatis_PageHelper
+
+Method API: https://apidoc.gitee.com/free/Mybatis_PageHelper/com/github/pagehelper/page/PageMethod.html
 
 ## 新书《MyBatis 从入门到精通》
 

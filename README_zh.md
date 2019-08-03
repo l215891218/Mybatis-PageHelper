@@ -2,7 +2,6 @@
 
 [![Build Status](https://travis-ci.org/pagehelper/Mybatis-PageHelper.svg?branch=master)](https://travis-ci.org/pagehelper/Mybatis-PageHelper)
 [![Maven central](https://maven-badges.herokuapp.com/maven-central/com.github.pagehelper/pagehelper/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.pagehelper/pagehelper)
-[![Dependency Status](https://www.versioneye.com/user/projects/5932123f22f278003c5f851e/badge.svg?style=flat)](https://www.versioneye.com/user/projects/5932123f22f278003c5f851e)
 
 [English](https://github.com/pagehelper/Mybatis-PageHelper/blob/master/README.md)
 
@@ -11,6 +10,13 @@
 分页插件支持任何复杂的单表、多表分页，部分特殊情况请看[重要提示](https://github.com/pagehelper/Mybatis-PageHelper/blob/master/wikis/zh/Important.md)。
 
 想要使用分页插件？请看[如何使用分页插件](https://github.com/pagehelper/Mybatis-PageHelper/blob/master/wikis/zh/HowToUse.md)。
+
+## 新增 JavaDoc 文档
+
+文档地址：https://apidoc.gitee.com/free/Mybatis_PageHelper
+
+Method API: https://apidoc.gitee.com/free/Mybatis_PageHelper/com/github/pagehelper/page/PageMethod.html
+
 
 ## 新书《MyBatis 从入门到精通》
 

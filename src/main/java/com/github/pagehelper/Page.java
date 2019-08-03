@@ -198,7 +198,9 @@ public class Page<E> extends ArrayList<E> implements Closeable {
         }
         //分页合理化，针对不合理的页码自动处理
         if ((reasonable != null && reasonable) && pageNum > pages) {
-            pageNum = pages;
+            if(pages!=0){
+                pageNum = pages;
+            }
             calculateStartAndEndRow();
         }
     }
@@ -332,15 +334,14 @@ public class Page<E> extends ArrayList<E> implements Closeable {
         return this;
     }
 
-
-    /**
-     * 转换为PageInfo
-     *
-     * @return
-     */
     public PageInfo<E> toPageInfo() {
         PageInfo<E> pageInfo = new PageInfo<E>(this);
         return pageInfo;
+    }
+
+    public PageSerializable<E> toPageSerializable() {
+        PageSerializable<E> serializable = new PageSerializable<E>(this);
+        return serializable;
     }
 
     public <E> Page<E> doSelectPage(ISelect select) {
@@ -351,6 +352,11 @@ public class Page<E> extends ArrayList<E> implements Closeable {
     public <E> PageInfo<E> doSelectPageInfo(ISelect select) {
         select.doSelect();
         return (PageInfo<E>) this.toPageInfo();
+    }
+
+    public <E> PageSerializable<E> doSelectPageSerializable(ISelect select) {
+        select.doSelect();
+        return (PageSerializable<E>) this.toPageSerializable();
     }
 
     public long doCount(ISelect select) {
@@ -380,7 +386,7 @@ public class Page<E> extends ArrayList<E> implements Closeable {
                 ", pages=" + pages +
                 ", reasonable=" + reasonable +
                 ", pageSizeZero=" + pageSizeZero +
-                '}';
+                '}' + super.toString();
     }
 
     @Override

@@ -72,4 +72,14 @@ public class Country implements Serializable {
     public void setCountries(List<Country> countries) {
         this.countries = countries;
     }
+
+    @Override
+    public String toString() {
+        return "Country{" +
+                "id=" + id +
+                ", countryname='" + countryname + '\'' +
+                ", countrycode='" + countrycode + '\'' +
+                ", countries=" + countries +
+                '}';
+    }
 }
